@@ -48,10 +48,10 @@ async fn button(mut button: ExtiInput<'_>) {
 }
 
 #[embassy_executor::task]
-async fn temp(pin: PC1, adc: ADC1) {
+async fn temp(_pin: PC1, adc: ADC1) {
     let mut delay = Delay;
     let mut adc = Adc::new(adc);
-    let mut pin = pin;
+    // let mut pin = pin;
     let mut vrefint = adc.enable_vrefint();
     let mut temp = adc.enable_temperature();
 
@@ -73,26 +73,30 @@ async fn temp(pin: PC1, adc: ADC1) {
     const MAX_ADC_SAMPLE: u16 = (1 << 12) - 1;
     info!("VCCA: {}", convert_to_millivolts(MAX_ADC_SAMPLE));
 
-    const INTERVAL_MS: u64 = 50;
+    const INTERVAL_MS: u64 = 10;
     let mut delay_ms = INTERVAL_MS * 10;
     loop {
-        let v = adc.blocking_read(&mut pin);
-        info!("PC1: {} ({} mV)", v, convert_to_millivolts(v));
+        // let v = adc.blocking_read(&mut pin);
+        // info!("PC1: {} ({} mV)", v, convert_to_millivolts(v));
 
         let v = adc.blocking_read(&mut temp);
         let celcius = convert_to_celsius(v);
         info!("Internal temp: {} ({} °C)", v, celcius);
 
-        let v = adc.blocking_read(&mut vrefint);
-        info!("VrefInt: {}", v);
+        // let v = adc.blocking_read(&mut vrefint);
+        // info!("VrefInt: {}", v);
+
         let dly = Duration::from_millis(delay_ms);
         if let Some(v) = SIGNAL.wait().with_timeout(dly).await.ok() {
             delay_ms = match v {
-                ButtonState::PRESSED if delay_ms > INTERVAL_MS => delay_ms - INTERVAL_MS,
+                ButtonState::PRESSED if delay_ms > (INTERVAL_MS * 10) => {
+                    delay_ms - INTERVAL_MS * 10
+                }
                 ButtonState::PRESSED => delay_ms,
-                _ => delay_ms + INTERVAL_MS,
+                _ => delay_ms,
             };
             info!("Delay = {} ms", delay_ms);
         };
+        delay_ms += INTERVAL_MS;
     }
 }
